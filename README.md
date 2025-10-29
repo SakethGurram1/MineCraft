@@ -27,7 +27,7 @@ Built primarily using HTML and CSS, this project demonstrates 3D rendering, bloc
 
 1. Clone the repository  
    ```bash
-   git clone https://github.com/Himesh-2007/Minecraft.git
+   git clone https://github.com/SakethGurram1/Minecraft.git
 ````
 
 2. Navigate into the project directory
