@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Minecraft-like BlockWorld 3D</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="stylesheet.css">
+<style>
+    
+    body { margin:0; overflow:hidden; font-family:Inter,sans-serif; background:#222; color:#eee;}
+    canvas { display:block;}
+    .info-panel {
+      position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.75);
+      padding:18px; border-radius:10px; color:white; font-size:15px;
+      max-width:420px; box-shadow:0 6px 12px rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.12);
+    }
+    .info-panel h2 { margin-top:0; color:#66BB6A; font-size:1.4em;}
+    .info-panel ul { list-style:none; padding:0; margin:0 0 10px 0;}
+    .info-panel li { margin-bottom:5px; padding-left:20px; position:relative;}
+    .info-panel li::before { content:'•'; color:#66BB6A; position:absolute; left:0;}
+    .crosshair { position:absolute; top:50%; left:50%; width:4px; height:4px; background:#FFD700; border-radius:50%; transform:translate(-50%,-50%); z-index:1000; box-shadow:0 0 5px rgba(255,215,0,0.5);}
+    .small { font-size:13px; color:#ddd; }
+    .btn { margin-right:6px; padding:6px 8px; background:#2b2b2b; border-radius:6px; border:1px solid rgba(255,255,255,0.06); cursor:pointer; color:#eee; }
+    .world-list { max-height:150px; overflow:auto; margin-top:8px; border-top:1px dashed rgba(255,255,255,0.04); padding-top:8px; }
+    .world-item { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.02); }
+    .world-item button { margin-left:6px; }
+  </style>
+</head>
+<body>
+  <div class="info-panel">
+    <h2>Minecraft-like BlockWorld 3D</h2>
+    <p class="small">Explore and build. Save / load worlds to the server.</p>
+    <p><strong>Controls:</strong></p>
+    <ul>
+      <li><strong>W, A, S, D:</strong> Move</li>
+      <li><strong>Spacebar:</strong> Jump</li>
+      <li><strong>Mouse Look:</strong> Click to lock, then look around</li>
+      <li><strong>Left Click:</strong> Place a dirt block</li>
+      <li><strong>Right Click:</strong> Remove an existing block</li>
+    </ul>
+
+    <div style="margin-top:8px;">
+      <input id="worldName" placeholder="World name (optional)" style="padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:#111;color:#eee;width:220px;">
+      <button class="btn" onclick="saveWorld()">Save</button>
+      <button class="btn" onclick="exportWorld()">Export (.json)</button>
+      <button class="btn" onclick="importWorld()">Import</button>
+    </div>
+
+    <div style="margin-top:8px;">
+      <strong>Saved Worlds:</strong>
+      <div id="worlds" class="world-list"></div>
+      <div style="margin-top:8px;">
+        <button class="btn" onclick="loadWorlds()">Refresh list</button>
+        <button class="btn" onclick="clearWorlds()">Clear server list</button>
+      </div>
+    </div>
+
+    <p style="margin-top:8px;color:#bbb;font-size:12px;">Update: Movement physics and block placement updated for a more classic feel.</p>
+  </div>
+
+  <div class="crosshair"></div>
+  <!-- Main Menu Overlay -->
+<div id="main-menu">
+  <div class="menu-container">
+    <h1 class="logo">BLOCKWORLD</h1>
+    <div class="menu-buttons">
+      <button class="menu-btn" id="play-btn">Play</button>
+      <button class="menu-btn">Settings</button>
+      <button class="menu-btn">Credits</button>
+    </div>
+    <p class="small-text">wow</p>
+  </div>
+</div>
+
+<!-- Your existing game canvas goes here -->
+<canvas id="game-canvas"></canvas>
+<script>
+  const playBtn = document.getElementById('play-btn');
+  const mainMenu = document.getElementById('main-menu');
+  playBtn.addEventListener('click', () => {
+    mainMenu.style.display = 'none';
+    // Initialize your game or resume rendering here
+  });
+</script>
+
+
+
+  <script>
+    // --- THREE / Game core (almost same as your file) ---
+    let scene, camera, renderer, player;
+    let worldSize = 40, blockSize = 1;
+    let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false, canJump=false;
+    let velocity = new THREE.Vector3();
+    const gravity = 25.0, playerSpeed = 5.0, jumpStrength = 8.0;
+    let prevTime = performance.now();
+    const raycaster = new THREE.Raycaster();
+    const worldBlocks = [];
+    const materials = {
+      dirt: new THREE.MeshLambertMaterial({ color: 0x8B4513 }),
+      grass: new THREE.MeshLambertMaterial({ color: 0x556B2F }),
+      wood: new THREE.MeshLambertMaterial({ color: 0x8B4513 }),
+      leaves: new THREE.MeshLambertMaterial({ color: 0x228B22 })
+    };
+    const playerHeight = blockSize * 1.8, playerWidth = blockSize * 0.8, playerDepth = blockSize * 0.8;
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87CEEB);
+      scene.fog = new THREE.Fog(0x87CEEB, 0.1, worldSize * blockSize * 0.8);
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      document.body.appendChild(renderer.domElement);
+
+      addLights();
+      createPlayer();
+      createBlockWorld();
+      setupEventListeners();
+      window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function addLights() {
+      const ambientLight = new THREE.AmbientLight(0x606060, 0.9);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      directionalLight.position.set(20, 30, 15);
+      directionalLight.castShadow = true;
+      scene.add(directionalLight);
+      const hemiLight = new THREE.HemisphereLight(0xb1e1ff, 0xb97a20, 0.5);
+      scene.add(hemiLight);
+    }
+
+    function createPlayer() {
+      const playerGeometry = new THREE.BoxGeometry(playerWidth, playerHeight, playerDepth);
+      const playerMaterial = new THREE.MeshBasicMaterial({ color: 0x0000FF, transparent: true, opacity: 0 });
+      player = new THREE.Mesh(playerGeometry, playerMaterial);
+      player.position.set(0, playerHeight / 2 + 5, 0);
+      scene.add(player);
+      player.add(camera);
+      camera.position.set(0, playerHeight / 2 - 0.1, 0);
+    }
+
+    function addBlock(x, y, z, material) {
+      const boxGeometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
+      const block = new THREE.Mesh(boxGeometry, material);
+      block.position.set(x, y, z);
+      scene.add(block);
+      // track material type for saving
+      block.userData = { mat: material === materials.grass ? 'grass' : (material === materials.leaves ? 'leaves' : (material === materials.wood ? 'wood' : 'dirt')) };
+      worldBlocks.push(block);
+      return block;
+    }
+
+    function generateTree(startX, startY, startZ) {
+      const trunkHeight = Math.floor(Math.random() * 2) + 3;
+      const leafRadius = 2;
+      const trunkBaseY = startY + blockSize / 2;
+      for (let i = 0; i < trunkHeight; i++) {
+        addBlock(startX, trunkBaseY + i * blockSize, startZ, materials.wood);
+      }
+      const leafBaseY = trunkBaseY + trunkHeight * blockSize;
+      for (let x = -leafRadius; x <= leafRadius; x++) {
+        for (let y = -leafRadius; y <= leafRadius; y++) {
+          for (let z = -leafRadius; z <= leafRadius; z++) {
+            if (x === 0 && z === 0 && y < 0) continue;
+            if (Math.sqrt(x*x + y*y + z*z) <= leafRadius + 0.5) {
+              addBlock(startX + x * blockSize, leafBaseY + y * blockSize, startZ + z * blockSize, materials.leaves);
+            }
+          }
+        }
+      }
+    }
+
+    function createBlockWorld() {
+      for (let x = -worldSize / 2; x < worldSize / 2; x++) {
+        for (let z = -worldSize / 2; z < worldSize / 2; z++) {
+          const height = Math.floor(Math.random() * 3) + 1;
+          for (let y = 0; y < height; y++) {
+            const blockX = x * blockSize + blockSize / 2;
+            const blockY = y * blockSize + blockSize / 2;
+            const blockZ = z * blockSize + blockSize / 2;
+            addBlock(blockX, blockY, blockZ, (y === height - 1) ? materials.grass : materials.dirt);
+          }
+          if (Math.random() < 0.01) {
+            const treeX = x * blockSize + blockSize / 2;
+            const treeY = height * blockSize;
+            const treeZ = z * blockSize + blockSize / 2;
+            generateTree(treeX, treeY, treeZ);
+          }
+        }
+      }
+    }
+
+    function setupEventListeners() {
+      document.addEventListener('keydown', onKeyDown, false);
+      document.addEventListener('keyup', onKeyUp, false);
+      document.addEventListener('mousedown', onMouseDown, false);
+      document.addEventListener('mousemove', onMouseMove, false);
+      document.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    function onKeyDown(event) {
+      switch (event.code) {
+        case 'KeyW': moveForward = true; break;
+        case 'KeyA': moveLeft = true; break;
+        case 'KeyS': moveBackward = true; break;
+        case 'KeyD': moveRight = true; break;
+        case 'Space':
+          if (canJump) {
+            velocity.y = jumpStrength;
+            canJump = false;
+          }
+          break;
+      }
+    }
+    function onKeyUp(event) {
+      switch (event.code) {
+        case 'KeyW': moveForward = false; break;
+        case 'KeyA': moveLeft = false; break;
+        case 'KeyS': moveBackward = false; break;
+        case 'KeyD': moveRight = false; break;
+      }
+    }
+
+    function onMouseDown(event) {
+      if (document.pointerLockElement !== document.body) {
+        document.body.requestPointerLock();
+      } else {
+        handleBlockInteraction(event);
+      }
+    }
+
+    function handleBlockInteraction(event) {
+      raycaster.setFromCamera({ x: 0, y: 0 }, camera);
+      const intersects = raycaster.intersectObjects(worldBlocks, false);
+      if (intersects.length > 0) {
+        const intersect = intersects[0];
+        const clickedBlock = intersect.object;
+        if (event.button === 0) {
+          const normal = intersect.face.normal.clone();
+          const newBlockPos = new THREE.Vector3().copy(clickedBlock.position).add(normal.multiplyScalar(blockSize));
+          const playerBBox = new THREE.Box3().setFromObject(player);
+          const newBlockBBox = new THREE.Box3().setFromCenterAndSize(newBlockPos, new THREE.Vector3(blockSize, blockSize, blockSize));
+          const blockExists = worldBlocks.some(block => block.position.equals(newBlockPos));
+          if (!playerBBox.intersectsBox(newBlockBBox) && !blockExists) {
+            addBlock(newBlockPos.x, newBlockPos.y, newBlockPos.z, materials.dirt);
+          }
+        } else if (event.button === 2) {
+          if (clickedBlock.position.y > blockSize / 2) {
+            scene.remove(clickedBlock);
+            const index = worldBlocks.indexOf(clickedBlock);
+            if (index > -1) worldBlocks.splice(index, 1);
+          }
+        }
+      }
+      event.preventDefault();
+    }
+
+    function onMouseMove(event) {
+      if (document.pointerLockElement === document.body) {
+        const movementX = event.movementX || 0;
+        const movementY = event.movementY || 0;
+        player.rotation.y -= movementX * 0.002;
+        camera.rotation.x -= movementY * 0.002;
+        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function handleCollisions(axis, movement) {
+      let onGround = false;
+      const playerBBox = new THREE.Box3();
+      const blockBBox = new THREE.Box3();
+      for (const block of worldBlocks) {
+        playerBBox.setFromObject(player);
+        blockBBox.setFromObject(block);
+        if (playerBBox.intersectsBox(blockBBox)) {
+          if (axis === 'y') {
+            if (movement < 0) {
+              player.position.y = blockBBox.max.y + playerHeight / 2;
+              velocity.y = 0;
+              onGround = true;
+            } else if (movement > 0) {
+              player.position.y = blockBBox.min.y - playerHeight / 2;
+              velocity.y = 0;
+            }
+          } else if (axis === 'x') {
+            if (movement > 0) {
+              player.position.x = blockBBox.min.x - playerWidth / 2 - 0.0001;
+            } else if (movement < 0) {
+              player.position.x = blockBBox.max.x + playerWidth / 2 + 0.0001;
+            }
+          } else if (axis === 'z') {
+            if (movement > 0) {
+              player.position.z = blockBBox.min.z - playerDepth / 2 - 0.0001;
+            } else if (movement < 0) {
+              player.position.z = blockBBox.max.z + playerDepth / 2 + 0.0001;
+            }
+          }
+        }
+      }
+      return onGround;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const time = performance.now();
+      const delta = (time - prevTime) / 1000;
+      const horizontalMoveVector = new THREE.Vector3(0, 0, 0);
+      if (moveForward || moveBackward) horizontalMoveVector.z = (Number(moveForward) - Number(moveBackward)) * playerSpeed * delta;
+      if (moveLeft || moveRight) horizontalMoveVector.x = (Number(moveRight) - Number(moveLeft)) * playerSpeed * delta;
+      horizontalMoveVector.applyQuaternion(player.quaternion);
+      velocity.y -= gravity * delta;
+      player.position.y += velocity.y * delta;
+      const onGround = handleCollisions('y', velocity.y * delta);
+      canJump = onGround;
+      player.position.x += horizontalMoveVector.x;
+      handleCollisions('x', horizontalMoveVector.x);
+      player.position.z += horizontalMoveVector.z;
+      handleCollisions('z', horizontalMoveVector.z);
+      if (player.position.y - playerHeight / 2 < 0) {
+        player.position.y = playerHeight / 2;
+        velocity.y = 0;
+        canJump = true;
+      }
+      renderer.render(scene, camera);
+      prevTime = time;
+    }
+
+    // --- Save / Load logic ---
+    function serializeWorld() {
+      // Save positions + materials of blocks
+      return worldBlocks.map(b => ({
+        pos: { x: b.position.x, y: b.position.y, z: b.position.z },
+        mat: b.userData && b.userData.mat ? b.userData.mat : 'dirt'
+      }));
+    }
+
+    async function saveWorld() {
+      const payload = {
+        name: document.getElementById('worldName').value || `World ${new Date().toISOString()}`,
+        world: serializeWorld()
+      };
+      try {
+        const resp = await fetch('/api/worlds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const j = await resp.json();
+        if (j.success) {
+          alert('World saved to server (id: ' + j.id + '). Refresh list to see it.');
+          loadWorlds();
+        } else {
+          alert('Save failed: ' + (j.error || 'unknown'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Save failed (see console).');
+      }
+    }
+
+    async function exportWorld() {
+      const worldJson = { name: document.getElementById('worldName').value || 'export', world: serializeWorld(), exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(worldJson, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${worldJson.name.replace(/\s+/g,'_')}.json`; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importWorld() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+        const text = await file.text();
+        try {
+          const parsed = JSON.parse(text);
+          loadWorldFromData(parsed.world || parsed);
+        } catch (err) {
+          alert('Invalid JSON');
+        }
+      };
+      input.click();
+    }
+
+    function clearSceneBlocks() {
+      for (const b of worldBlocks) scene.remove(b);
+      worldBlocks.length = 0;
+    }
+
+    function loadWorldFromData(blocks) {
+      clearSceneBlocks();
+      for (const b of blocks) {
+        const mat = b.mat === 'grass' ? materials.grass : (b.mat === 'leaves' ? materials.leaves : (b.mat === 'wood' ? materials.wood : materials.dirt));
+        addBlock(b.pos.x, b.pos.y, b.pos.z, mat);
+      }
+    }
+
+    async function loadWorlds() {
+      try {
+        const resp = await fetch('/api/worlds');
+        const j = await resp.json();
+        const container = document.getElementById('worlds');
+        container.innerHTML = '';
+        if (j.success && j.worlds.length) {
+          j.worlds.sort((a,b)=>new Date(b.modifiedAt)-new Date(a.modifiedAt));
+          for (const w of j.worlds) {
+            const el = document.createElement('div');
+            el.className = 'world-item';
+            el.innerHTML = `<div style="font-size:13px">${w.id} <div style="font-size:11px;color:#bbb">${new Date(w.modifiedAt).toLocaleString()}</div></div>`;
+            const btnWrap = document.createElement('div');
+            const loadBtn = document.createElement('button');
+            loadBtn.className = 'btn'; loadBtn.textContent = 'Load';
+            loadBtn.onclick = () => loadWorld(w.id);
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn'; delBtn.textContent = 'Delete';
+            delBtn.onclick = async () => {
+              if (!confirm('Delete server world ' + w.id + '?')) return;
+              await fetch('/api/worlds/' + w.id, { method: 'DELETE' });
+              loadWorlds();
+            };
+            btnWrap.appendChild(loadBtn); btnWrap.appendChild(delBtn);
+            el.appendChild(btnWrap);
+            container.appendChild(el);
+          }
+        } else {
+          container.innerHTML = '<div style="color:#bbb;font-size:13px;padding:6px 0">No saved worlds yet.</div>';
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to fetch world list');
+      }
+    }
+
+    async function loadWorld(id) {
+      try {
+        const resp = await fetch('/api/worlds/' + id);
+        const j = await resp.json();
+        if (j.success && j.world && j.world.world) {
+          loadWorldFromData(j.world.world);
+        } else {
+          alert('Failed to load world');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to load world (see console)');
+      }
+    }
+
+    async function clearWorlds() {
+      if (!confirm('Delete ALL server worlds?')) return;
+      try {
+        const resp = await fetch('/api/worlds');
+        const j = await resp.json();
+        if (j.success) {
+          for (const w of j.worlds) {
+            await fetch('/api/worlds/' + w.id, { method: 'DELETE' });
+          }
+          loadWorlds();
+          alert('Cleared.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to clear.');
+      }
+    }
+
+    // --- init + animate ---
+    window.onload = () => {
+      init();
+      animate();
+      loadWorlds();
+    };
+  </script>
+</body>
+</html>

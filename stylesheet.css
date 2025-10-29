@@ -1,0 +1,194 @@
+/* === GLOBAL RESET === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  font-family: 'Arial', sans-serif;
+  background: #1b1b1b;           /* dark gray background */
+  color: #e0e0e0;                /* light gray text */
+  overflow: hidden;              /* hide scrollbars */
+}
+
+/* === HEADER / NAV === */
+header {
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(90deg, #292929, #1f1f1f);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 2px solid #333;
+}
+
+header h1 {
+  color: #00e0ff;               /* neon cyan */
+  font-size: 1.5rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+header nav a {
+  margin-left: 15px;
+  text-decoration: none;
+  color: #ccc;
+  transition: color 0.2s;
+}
+
+header nav a:hover {
+  color: #00e0ff;
+}
+
+/* === MAIN GAME AREA === */
+main {
+  position: relative;
+  width: 100%;
+  height: calc(100% - 60px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Centered canvas for game */
+canvas {
+  border: 2px solid #00e0ff;
+  background: #111;
+  box-shadow: 0 0 20px rgba(0, 224, 255, 0.3);
+}
+
+/* === SIDE PANEL / INFO === */
+.info-panel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(30, 30, 30, 0.9);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  width: 240px;
+}
+
+.info-panel h2 {
+  color: #00e0ff;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+
+.info-panel ul {
+  list-style: none;
+}
+
+.info-panel li {
+  padding: 5px 0;
+  border-bottom: 1px solid #333;
+}
+
+/* === BUTTONS === */
+.btn {
+  display: inline-block;
+  background: #2e2e2e;
+  color: #eee;
+  border: 1px solid #444;
+  padding: 8px 14px;
+  margin: 5px 0;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background: #00e0ff;
+  color: #111;
+  border-color: #00e0ff;
+  box-shadow: 0 0 10px rgba(0,224,255,0.4);
+}
+
+/* === CROSSHAIR === */
+.crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: #ffd700;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px rgba(255,215,0,0.7);
+}
+
+/* === FOOTER (Optional) === */
+footer {
+  position: absolute;
+  bottom: 10px;
+  width: 100%;
+  text-align: center;
+  color: #555;
+  font-size: 0.8rem;
+}
+/* === MAIN MENU OVERLAY === */
+#main-menu {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: url('menu-bg.jpg') center/cover no-repeat, #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.menu-container {
+  background: rgba(20,20,20,0.85);
+  border: 2px solid #00e0ff;
+  border-radius: 10px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow: 0 0 25px rgba(0,224,255,0.3);
+}
+
+.logo {
+  font-size: 2.5rem;
+  letter-spacing: 4px;
+  color: #00e0ff;
+  margin-bottom: 30px;
+  text-transform: uppercase;
+  text-shadow: 0 0 15px rgba(0,224,255,0.8);
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.menu-btn {
+  background: #2e2e2e;
+  color: #eee;
+  border: 2px solid #444;
+  padding: 12px 40px;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menu-btn:hover {
+  background: #00e0ff;
+  color: #111;
+  border-color: #00e0ff;
+  box-shadow: 0 0 12px rgba(0,224,255,0.5);
+}
+
+.small-text {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
